@@ -1,0 +1,203 @@
+import random
+import time
+import sys
+import csv
+
+def load_words_from_csv(filename):
+    """Loads words from a CSV file into a dictionary."""
+    word_lists = {"Easy": [], "Medium": [], "Hard": []}
+    try:
+        with open(filename, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Store words in respective difficulty categories
+                if row['Easy']:
+                    word_lists['Easy'].append(row['Easy'].strip().lower())
+                if row['Medium']:
+                    word_lists['Medium'].append(row['Medium'].strip().lower())
+                if row['Hard']:
+                    word_lists['Hard'].append(row['Hard'].strip().lower())
+    except FileNotFoundError:
+        print("Error: CSV file not found.")
+        sys.exit(1)
+    except KeyError:
+        print("Error: CSV file format incorrect. Ensure columns are 'Easy', 'Medium', 'Hard'.")
+        sys.exit(1)
+    return word_lists
+
+def select_word(difficulty, word_lists):
+    """Selects a random word based on the chosen difficulty level."""
+    if difficulty in word_lists and word_lists[difficulty]:
+        return random.choice(word_lists[difficulty])
+    elif difficulty == "Custom":
+        # Allow user to enter a custom word
+        custom_word = input("Enter your custom word: ").lower()
+        while not custom_word.isalpha():
+            custom_word = input("Invalid input. Please enter a word with letters only: ").lower()
+        return custom_word
+    else:
+        return None
+
+def display_word(word, guessed_letters):
+    """Displays the word with guessed letters revealed and unguessed letters as underscores."""
+    return ''.join(letter if letter in guessed_letters else '_' for letter in word)
+
+def draw_hangman(incorrect_guesses):
+    """Draws the hangman figure based on the number of incorrect guesses."""
+    hangman_stages = [
+        """
+           -----
+           |   |
+               |
+               |
+               |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+               |
+               |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+           |   |
+               |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+          /|   |
+               |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+          /|\  |
+               |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+          /|\  |
+          /    |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           O   |
+          /|\  |
+          / \  |
+               |
+        ---------
+        """,
+        """
+           -----
+           |   |
+           X   |
+          /|\  |
+          / \  |
+               |
+        ---------
+        """, # Slaughtered/Hung
+    ]
+    print(hangman_stages[min(incorrect_guesses, len(hangman_stages) - 1)])
+
+def hangman_game(word_lists):
+    """Main function that runs the Hangman game."""
+    print("Welcome to Hangman! Let's play!")
+    difficulty = input("Choose your difficulty! (Easy, Medium, Hard, Custom): ").capitalize()
+    word = select_word(difficulty, word_lists)
+    if word is None:
+        print("Invalid difficulty or no words available. Exiting game.")
+        return False
+
+    guessed_letters = []
+    incorrect_guesses = 0
+    score = 100
+
+    while True:
+        # Display the current word state
+        print("\n" + display_word(word, guessed_letters))
+        draw_hangman(incorrect_guesses)
+        print(f"Your Current Score: {score}")
+
+        timer = 15  # 15 seconds for each guess
+        start_time = time.time()
+        guess = ""
+
+        # Timer loop for the user's guess input
+        while time.time() - start_time < timer:
+            remaining_time = timer - (time.time() - start_time)
+            print(f"Enter your guess, you have {remaining_time:.1f} seconds remaining: ", end='\r')
+            sys.stdout.flush()
+
+            # Accept input after the user has pressed a key
+            if sys.stdin in [sys.stdin]:
+                if sys.stdin.readable():
+                    guess = input().lower().strip()
+                    break
+        else:
+            print("\nTime's up! You took too long to guess.")
+            incorrect_guesses += 1
+            score -= 10
+            continue
+
+        # Validate single letter guess
+        if len(guess) == 1 and guess.isalpha():
+            if guess in guessed_letters:
+                print("You've already guessed that letter.")
+            elif guess in word:
+                guessed_letters.append(guess)
+                # Check if all letters have been guessed
+                if all(letter in guessed_letters for letter in word):
+                    print(f"Congratulations! You've guessed the word: {word}!")
+                    return True
+            else:
+                incorrect_guesses += 1
+                score -= 10
+        # Check if player guessed the full word
+        elif guess == word:
+            print(f"Congratulations! You've guessed the word: {word}!")
+            return True
+        else:
+            incorrect_guesses += 1
+            score -= 10
+
+        # End game if max incorrect guesses are reached
+        if incorrect_guesses >= 7:
+            draw_hangman(incorrect_guesses)
+            print(f"Oh no! You lost! The word was: {word}. Better luck next time!")
+            return False
+
+if __name__ == "__main__":
+    # Load words from CSV file
+    word_lists = load_words_from_csv("words.csv")
+    while True:
+        # Run the game loop
+        if hangman_game(word_lists):
+            play_again = input("Do you want to play again? (yes/no): ").lower()
+            if play_again != "yes":
+                break
+        else:
+            play_again = input("Do you want to play again? (yes/no): ").lower()
+            if play_again != "yes":
+                break
+    print("Thanks for playing Hangman!")
